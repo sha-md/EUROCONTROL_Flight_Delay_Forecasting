@@ -4,92 +4,72 @@ import numpy as np
 import matplotlib.pyplot as plt
 from xgboost import XGBRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error
-import os
+from datetime import timedelta
 
-# ----------------------------
-# 🌍 PAGE CONFIG
-# ----------------------------
-st.set_page_config(page_title="EUROCONTROL Flight Delay Forecasting", layout="wide")
+st.set_page_config(page_title="EUROCONTROL Flight Delay Forecaster", layout="wide")
 
 st.title("✈️ EUROCONTROL Flight Delay Forecasting Dashboard (2020–2024)")
 st.markdown("""
-Forecasting **daily en-route Air Traffic Flow Management (ATFM) delays** across Europe using real **EUROCONTROL ANSP data**.
-The project compares traditional **SARIMA** and **XGBoost** models for improved forecasting of operational delays.
+Upload EUROCONTROL **ANSP delay data** to forecast **future daily delays** using a tuned **XGBoost model**.
+
+This interactive tool:
+- Cleans and aggregates your dataset
+- Analyzes daily patterns
+- Forecasts **next 7 days** of en-route ATFM delays  
 """)
 
-# ----------------------------
-# 📥 LOAD DATA
-# ----------------------------
-@st.cache_data
-def load_data():
-    files = [f for f in os.listdir() if f.endswith(".bz2")]
-    if not files:
-        st.error("⚠️ No .bz2 data files found! Please upload at least one file (e.g., `ert_dly_ansp_2024.csv.bz2`) to your GitHub repository.")
-        return pd.DataFrame(columns=["DATE", "TOTAL_DELAY"])
-    
-    dfs = []
-    for f in files:
-        df_year = pd.read_csv(f, compression="bz2")
-        dfs.append(df_year)
-    
-    df = pd.concat(dfs, ignore_index=True)
+# ---------------------------
+# 📂 FILE UPLOAD
+# ---------------------------
+uploaded_file = st.file_uploader("📤 Upload your EUROCONTROL .bz2 or .csv data file", type=["bz2", "csv"])
+
+if uploaded_file is not None:
+    st.success(f"✅ File uploaded: {uploaded_file.name}")
+
+    # Load uploaded data
+    if uploaded_file.name.endswith(".bz2"):
+        df = pd.read_csv(uploaded_file, compression="bz2")
+    else:
+        df = pd.read_csv(uploaded_file)
+
+    # ---------------------------
+    # 🧹 DATA CLEANING
+    # ---------------------------
+    st.subheader("🔍 Data Overview")
+
     df["FLT_DATE"] = pd.to_datetime(df["FLT_DATE"], errors="coerce")
     df = df.dropna(subset=["FLT_DATE"]).sort_values("FLT_DATE")
-    df["TOTAL_DELAY"] = df["FLT_ERT_1_DLY"].fillna(0)
+
+    # If total delay not directly available, sum all delay columns
+    if "FLT_ERT_1_DLY" in df.columns:
+        df["TOTAL_DELAY"] = df["FLT_ERT_1_DLY"].fillna(0)
+    else:
+        dly_cols = [c for c in df.columns if c.startswith("DLY_ERT_")]
+        df["TOTAL_DELAY"] = df[dly_cols].sum(axis=1, skipna=True)
+
+    # Aggregate to daily totals
     daily = df.groupby("FLT_DATE", as_index=False)["TOTAL_DELAY"].sum()
     daily.rename(columns={"FLT_DATE": "DATE"}, inplace=True)
     daily = daily.set_index("DATE").asfreq("D").fillna(0).reset_index()
-    return daily
 
-    
+    st.write("#### Sample of processed daily data")
+    st.dataframe(daily.head(10))
 
-daily = load_data()
+    # ---------------------------
+    # 📊 VISUALIZE HISTORICAL DELAYS
+    # ---------------------------
+    st.subheader("📈 Historical Daily Delays")
+    fig, ax = plt.subplots(figsize=(12, 4))
+    ax.plot(daily["DATE"], daily["TOTAL_DELAY"], color="steelblue", linewidth=1.5)
+    ax.set_title("Daily Total En-route ATFM Delay (Minutes)")
+    ax.set_xlabel("Date"); ax.set_ylabel("Total Delay (min)")
+    ax.grid(True)
+    st.pyplot(fig)
 
-# ----------------------------
-# 🧭 SIDEBAR
-# ----------------------------
-st.sidebar.header("🔍 Navigation")
-page = st.sidebar.radio("Choose a section:", ["SARIMA Overview", "XGBoost Forecasting"])
-
-st.sidebar.markdown("---")
-st.sidebar.info("Developed by **[Your Name]** 🇪🇺\n\n📧 your@email.com\n\n🌐 [GitHub Repo](#)")
-
-# ----------------------------
-# 📈 SARIMA OVERVIEW TAB
-# ----------------------------
-if page == "SARIMA Overview":
-    st.subheader("📊 SARIMA Model — Statistical Forecasting Overview")
-
-    st.markdown("""
-    SARIMA (Seasonal AutoRegressive Integrated Moving Average) is a traditional time series model that captures:
-    - **Trend** — gradual increase/decrease in delays  
-    - **Seasonality** — weekly or monthly repeating patterns  
-    - **Noise** — short-term random fluctuations  
-
-    However, due to high volatility and sudden spikes in ATFM delays, SARIMA struggled to generalize effectively.
-    """)
-
-    st.write("### Example Daily Delay Trends")
-    st.line_chart(daily.set_index("DATE")["TOTAL_DELAY"])
-
-    st.markdown("""
-    #### 📉 SARIMA Model Results (2020–2024)
-    | Metric | Score |
-    |:-------|------:|
-    | **MAE** | 28,270 minutes |
-    | **RMSE** | 33,594 minutes |
-    | **Adjusted MAPE** | 917.67% |
-
-    These metrics indicate poor performance during irregular delay spikes — motivating a shift to **XGBoost**.
-    """)
-
-# ----------------------------
-# ⚙️ XGBOOST FORECASTING TAB
-# ----------------------------
-elif page == "XGBoost Forecasting":
-    st.subheader("🧠 XGBoost Model — Machine Learning Forecasting")
-
-    # Feature engineering
+    # ---------------------------
+    # ⚙️ FEATURE ENGINEERING
+    # ---------------------------
+    st.subheader("🧠 Model Training (XGBoost)")
     df = daily.copy()
     df["day_of_week"] = df["DATE"].dt.dayofweek
     df["month"] = df["DATE"].dt.month
@@ -108,53 +88,64 @@ elif page == "XGBoost Forecasting":
     X_train, X_test = X.iloc[:split_idx], X.iloc[split_idx:]
     y_train, y_test = y.iloc[:split_idx], y.iloc[split_idx:]
 
-    # Model
     model = XGBRegressor(
         n_estimators=300,
         learning_rate=0.1,
         max_depth=4,
         subsample=0.8,
         colsample_bytree=0.8,
-        random_state=42
+        random_state=42,
+        n_jobs=-1
     )
     model.fit(X_train, y_train)
+
     y_pred = model.predict(X_test)
 
-    # Metrics
+    # ---------------------------
+    # 📏 MODEL METRICS
+    # ---------------------------
     mae = mean_absolute_error(y_test, y_pred)
     rmse = np.sqrt(mean_squared_error(y_test, y_pred))
     mask = y_test != 0
     mape = (np.abs(y_test[mask] - y_pred[mask]) / y_test[mask]).mean() * 100
 
-    st.markdown("### ⚡ Model Performance")
-    st.metric(label="Mean Absolute Error (MAE)", value=f"{mae:,.0f} min")
-    st.metric(label="Root Mean Squared Error (RMSE)", value=f"{rmse:,.0f} min")
-    st.metric(label="Adjusted MAPE", value=f"{mape:.2f}%")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("MAE", f"{mae:,.0f} min")
+    col2.metric("RMSE", f"{rmse:,.0f} min")
+    col3.metric("Adjusted MAPE", f"{mape:.2f}%")
 
-    st.markdown("### 📈 Actual vs Predicted Delays")
-    fig, ax = plt.subplots(figsize=(12, 5))
-    ax.plot(df["DATE"].iloc[split_idx:], y_test.values, label="Actual", linewidth=1.5)
-    ax.plot(df["DATE"].iloc[split_idx:], y_pred, label="Predicted", linewidth=1.5)
-    ax.legend()
-    ax.set_title("Actual vs Predicted Daily Delay — XGBoost")
-    ax.set_xlabel("Date")
-    ax.set_ylabel("Delay (min)")
+    # ---------------------------
+    # 🔮 FORECAST NEXT 7 DAYS
+    # ---------------------------
+    st.subheader("🔮 7-Day Delay Forecast")
+
+    future = df.copy()
+    for i in range(7):
+        last_date = future["DATE"].iloc[-1] + timedelta(days=1)
+        new_data = {
+            "day_of_week": last_date.dayofweek,
+            "month": last_date.month,
+            "is_weekend": 1 if last_date.dayofweek in [5, 6] else 0,
+            "lag_1": future["TOTAL_DELAY"].iloc[-1],
+            "lag_7": future["TOTAL_DELAY"].iloc[-7] if len(future) >= 7 else future["TOTAL_DELAY"].iloc[-1],
+            "rolling_mean_7": future["TOTAL_DELAY"].tail(7).mean(),
+            "rolling_std_7": future["TOTAL_DELAY"].tail(7).std()
+        }
+        y_future = model.predict(pd.DataFrame([new_data]))[0]
+        new_data["TOTAL_DELAY"] = y_future
+        new_data["DATE"] = last_date
+        future = pd.concat([future, pd.DataFrame([new_data])], ignore_index=True)
+
+    future_tail = future.set_index("DATE").tail(20)
+    fig, ax = plt.subplots(figsize=(12, 4))
+    ax.plot(future_tail.index, future_tail["TOTAL_DELAY"], marker="o", label="Forecast + Actual")
+    ax.axvline(future["DATE"].iloc[-8], color='red', linestyle='--', label="Forecast Start")
+    ax.set_title("7-Day Flight Delay Forecast — XGBoost")
+    ax.set_ylabel("Total Delay (minutes)")
+    ax.legend(); ax.grid(True)
     st.pyplot(fig)
 
-    # Feature Importance
-    st.markdown("### 🔍 Feature Importance")
-    importance = model.feature_importances_
-    fig, ax = plt.subplots(figsize=(6, 4))
-    ax.barh(FEATURES, importance)
-    ax.set_title("Top Features Impacting Delays")
-    st.pyplot(fig)
+    st.success("✅ Forecast generated successfully!")
 
-    st.markdown("""
-    **Observations:**
-    - Lag and rolling features are the strongest predictors.
-    - The model learns patterns between weekday/month and delay spikes.
-    - Provides a robust alternative to traditional SARIMA under high variance conditions.
-    """)
-
-st.markdown("---")
-st.caption("Developed with ❤️ by [Your Name] — Forecasting Flight Delays using SARIMA & XGBoost")
+else:
+    st.info("👆 Upload a EUROCONTROL `.bz2` or `.csv` dataset to start analysis and forecasting.")
