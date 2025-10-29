@@ -5,7 +5,7 @@ The project explores two complementary forecasting approaches — first using a 
 
 ---
 
-## 📑 Table of Contents
+## Table of Contents
 1. [Project Overview](#project-overview)  
 2. [Business Objective](#business-objective)  
 3. [Dataset](#dataset)  
@@ -17,16 +17,16 @@ The project explores two complementary forecasting approaches — first using a 
 
 ---
 
-## 🧠 Project Overview
+## Project Overview
 This project focuses on predicting **daily en-route flight delays** across European airspace using **EUROCONTROL ATFM datasets** from 2020–2024.  
 Accurate forecasting helps **air navigation service providers (ANSPs)**, **airlines**, and **airports** optimize resources, manage congestion, and improve network efficiency.
 
-First modeled the time series using **SARIMA**, but due to high volatility and irregular spikes in daily delays, I switched to **XGBoost** with lag and rolling features.  
+I first modeled the time series using **SARIMA**, but due to high volatility and irregular spikes in daily delays, I switched to **XGBoost** with lag and rolling features.  
 This significantly improved **model accuracy, stability, and interpretability.**
 
 ---
 
-## 💼 Business Objective
+## Business Objective
 Air traffic delays have major operational and financial impacts, including:
 - Increased **fuel consumption** and **CO₂ emissions**  
 - Crew rescheduling and slot management issues  
@@ -36,7 +36,7 @@ Forecasting these delays enables **predictive planning**, **capacity management*
 
 ---
 
-## 📊 Dataset
+## Dataset
 - **Source:** [EUROCONTROL Performance Review Unit (PRU)](https://ansperformance.eu/data/)  
 - **Files Used:** `ert_dly_ansp_2020.csv.bz2` → `ert_dly_ansp_2024.csv.bz2`  
 - **Time Range:** January 2020 – September 2025  
@@ -49,19 +49,19 @@ Forecasting these delays enables **predictive planning**, **capacity management*
 
 ---
 
-## 🔍 Exploratory Analysis (EDA)
+## Exploratory Analysis
 - Strong **seasonality**: delay peaks during **summer months** (June–August).  
 - Higher average delays on **weekends** due to increased flight density.  
 - Some ANSPs contribute disproportionately to delay totals.  
 
 **Visuals included:**
-- 📈 Daily and monthly trend plots  
-- 🏢 Top 10 entities contributing to delays  
-- 📊 Distribution of total delay minutes (revealing heavy outliers)
+- Daily and monthly trend plots  
+- Top 10 entities contributing to delays  
+- Distribution of total delay minutes (revealing heavy outliers)
 
 ---
 
-## ⚖️ Model Comparison
+## Model Comparison
 
 | Metric        | SARIMA     | XGBoost (Tuned) |
 | ------------- | ---------- | --------------- |
@@ -73,7 +73,7 @@ Forecasting these delays enables **predictive planning**, **capacity management*
 
 ---
 
-## 💡 Key Insights
+## Key Insights
 - Delays peak during **summer** and **weekends**.  
 - XGBoost’s **lag-based and rolling features** were the strongest predictors.  
 - Data-driven forecasting can support **strategic staffing**, **slot optimization**, and **fuel efficiency**.  
@@ -81,7 +81,7 @@ Forecasting these delays enables **predictive planning**, **capacity management*
 
 ---
 
-## 🧰 Tech Stack
+## Tech Stack
 
 | Category | Tools |
 |-----------|-------|
@@ -92,6 +92,8 @@ Forecasting these delays enables **predictive planning**, **capacity management*
 | **Data Source** | EUROCONTROL PRU (Public Data) |
 
 ---
+
+
 
 ##  Author
 
