@@ -22,12 +22,16 @@ The project compares traditional **SARIMA** and **XGBoost** models for improved 
 # ----------------------------
 @st.cache_data
 def load_data():
-    """Load all .bz2 files in repo and merge."""
     files = [f for f in os.listdir() if f.endswith(".bz2")]
+    if not files:
+        st.error("⚠️ No .bz2 data files found! Please upload at least one file (e.g., `ert_dly_ansp_2024.csv.bz2`) to your GitHub repository.")
+        return pd.DataFrame(columns=["DATE", "TOTAL_DELAY"])
+    
     dfs = []
     for f in files:
         df_year = pd.read_csv(f, compression="bz2")
         dfs.append(df_year)
+    
     df = pd.concat(dfs, ignore_index=True)
     df["FLT_DATE"] = pd.to_datetime(df["FLT_DATE"], errors="coerce")
     df = df.dropna(subset=["FLT_DATE"]).sort_values("FLT_DATE")
@@ -36,6 +40,8 @@ def load_data():
     daily.rename(columns={"FLT_DATE": "DATE"}, inplace=True)
     daily = daily.set_index("DATE").asfreq("D").fillna(0).reset_index()
     return daily
+
+    
 
 daily = load_data()
 
