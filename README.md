@@ -98,6 +98,7 @@ Forecasting these delays enables **predictive planning**, **capacity management*
 
 **SHABNAM BEGAM MAHAMMAD**  
  [www.linkedin.com/in/shabnam-b-mahammad-377520272](#)  
+ www.linkedin.com/in/shabnam-b-mahammad
  shabnam71.md@gmail.com  
 
 ## Streamlit
