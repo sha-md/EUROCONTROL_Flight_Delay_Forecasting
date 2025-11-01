@@ -1,6 +1,7 @@
 # EUROCONTROL Flight Delay Forecasting — ANSP Dataset (2020–2024)
 
-A machine learning and time-series forecasting project predicting **daily en-route Air Traffic Flow Management (ATFM) delays** across Europe using operational data from **EUROCONTROL ANSP** (Air Navigation Service Providers).  
+Forecasting daily en-route Air Traffic Flow Management (ATFM) delays across Europe using real EUROCONTROL ANSP operational data.
+The project explores two complementary forecasting approaches — first used a SARIMA model, then transitioning to a more powerful XGBoost model that captures non-linear patterns and volatility.
 
 ---
 
@@ -21,10 +22,11 @@ A machine learning and time-series forecasting project predicting **daily en-rou
 
 ## Project Overview
 
-This project focuses on predicting **daily en-route flight delays** across European airspace using **EUROCONTROL ATFM operational datasets** from 2020–2024.  
-The analysis combines both **classical time series forecasting (SARIMA)** and **machine learning (XGBoost)** models to capture delay volatility, seasonal peaks, and operational variations across different ANSPs.
+This project focuses on predicting daily en-route flight delays across European airspace using EUROCONTROL ATFM datasets from 2020–2024.
+Accurate forecasting helps air navigation service providers (ANSPs), airlines, and airports optimize resources, manage congestion, and improve network efficiency.
 
-Forecasting air traffic delays supports **strategic decision-making** in network operations, staffing, and congestion management — helping Europe’s aviation ecosystem move toward **data-driven efficiency**.
+First modeled the time series using SARIMA, but due to high volatility and irregular spikes in daily delays,switched to XGBoost with lag and rolling features.
+This significantly improved model accuracy, stability, and interpretability.
 
 ---
 
