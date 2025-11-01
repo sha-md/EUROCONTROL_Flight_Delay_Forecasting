@@ -1,7 +1,6 @@
 # EUROCONTROL Flight Delay Forecasting — ANSP Dataset (2020–2024)
 
 A machine learning and time-series forecasting project predicting **daily en-route Air Traffic Flow Management (ATFM) delays** across Europe using operational data from **EUROCONTROL ANSP** (Air Navigation Service Providers).  
-Originally developed as part of a data science learning journey and extended into an **interactive Streamlit web application** by **Shabnam B. Mahammad**.
 
 ---
 
