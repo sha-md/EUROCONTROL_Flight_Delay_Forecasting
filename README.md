@@ -154,6 +154,6 @@ Technologies used: **Streamlit, Python, Pandas, XGBoost, Matplotlib, Statsmodels
 ## Author
 
 **Shabnam Begam Mahammad**  
-[LinkedIn](https://www.linkedin.com/in/shabnam-b-mahammad) | [Email](mailto:shabnam71.md@gmail.com) 
+[LinkedIn](https://www.linkedin.com/in/shabnam-b-mahammad) | [Email](mailto:md.shabnam21@gmail.com) 
 
 “Transforming air traffic data into smarter skies through machine learning.”
