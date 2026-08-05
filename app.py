@@ -335,23 +335,32 @@ if uploaded_file is not None:
     
         avg_delay = forecast["TOTAL_DELAY"].mean()
 
-        st.info(f"""
-            ### Business Insight
+        if avg_delay > 10000:
+        st.error(f"""
+         ### Business Insight
+
+        The model forecasts an average daily delay of **{avg_delay:,.0f} minutes** over the next **{forecast_days} days**.
         
-                The model forecasts an average daily delay of **{avg_delay:,.0f} minutes** over the next {forecast_days} days.
+        High congestion is expected. Airlines, airports and ANSPs should consider additional operational capacity and proactive traffic management.
+        """)       
+
+        elif avg_delay > 5000:
+            st.warning(f"""
+        ### Business Insight
         
-                if avg_delay > 10000:
-                    st.error(
-                        "High forecasted delays indicate elevated congestion levels. Airlines and ANSPs may need additional operational capacity."
-                    )
-                elif avg_delay > 5000:
-                    st.warning(
-                        "Moderate delays are expected. Resource planning and schedule optimisation are recommended."
-                    )
-                else:
-                    st.success(
-                        "Forecasted delays remain relatively low, suggesting stable network performance."
-                    )
+        The model forecasts an average daily delay of **{avg_delay:,.0f} minutes** over the next **{forecast_days} days**.
+        
+        Moderate congestion is expected. Resource planning and schedule optimisation are recommended.
+        """)
+
+        else:
+            st.success(f"""
+        ### Business Insight
+        
+        The model forecasts an average daily delay of **{avg_delay:,.0f} minutes** over the next **{forecast_days} days**.
+        
+        Forecasted delays remain relatively low, indicating relatively stable network conditions.
+        """)
 
         forecast_display = forecast.copy()
 
