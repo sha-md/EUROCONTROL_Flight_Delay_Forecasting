@@ -336,22 +336,22 @@ if uploaded_file is not None:
         avg_delay = forecast["TOTAL_DELAY"].mean()
 
         st.info(f"""
-        ### Business Insight
-    
-            The model forecasts an average daily delay of **{avg_delay:,.0f} minutes** over the next {forecast_days} days.
-    
-            if avg_delay > 10000:
-                st.error(
-                    "High forecasted delays indicate elevated congestion levels. Airlines and ANSPs may need additional operational capacity."
-                )
-            elif avg_delay > 5000:
-                st.warning(
-                    "Moderate delays are expected. Resource planning and schedule optimisation are recommended."
-                )
-            else:
-                st.success(
-                    "Forecasted delays remain relatively low, suggesting stable network performance."
-                )
+            ### Business Insight
+        
+                The model forecasts an average daily delay of **{avg_delay:,.0f} minutes** over the next {forecast_days} days.
+        
+                if avg_delay > 10000:
+                    st.error(
+                        "High forecasted delays indicate elevated congestion levels. Airlines and ANSPs may need additional operational capacity."
+                    )
+                elif avg_delay > 5000:
+                    st.warning(
+                        "Moderate delays are expected. Resource planning and schedule optimisation are recommended."
+                    )
+                else:
+                    st.success(
+                        "Forecasted delays remain relatively low, suggesting stable network performance."
+                    )
 
         forecast_display = forecast.copy()
 
