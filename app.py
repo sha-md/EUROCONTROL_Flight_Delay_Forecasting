@@ -336,7 +336,7 @@ if uploaded_file is not None:
         avg_delay = forecast["TOTAL_DELAY"].mean()
 
         if avg_delay > 10000:
-        st.error(f"""
+            st.error(f"""
          ### Business Insight
 
         The model forecasts an average daily delay of **{avg_delay:,.0f} minutes** over the next **{forecast_days} days**.
