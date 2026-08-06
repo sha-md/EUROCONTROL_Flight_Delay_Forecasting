@@ -7,42 +7,81 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 from datetime import timedelta
 import plotly.express as px
 
-st.set_page_config(
-    page_title="EUROCONTROL Flight Delay Analytics",
-    page_icon="✈️",
-    layout="wide"
-)
+    @st.cache_data
+    def load_data():
+        return pd.read_csv(
+            "ert_dly_ansp_2024.csv.bz2",
+            compression="bz2"
+        )
 
-st.title("✈️ EUROCONTROL Flight Delay Analytics & Forecasting")
-
-st.caption(
-    "Interactive dashboard for analysing historical EUROCONTROL ANSP delays and forecasting future en-route ATFM delays using XGBoost."
-)
-# ---------------------------
-# 📂 FILE UPLOAD
-# ---------------------------
-uploaded_file = st.file_uploader("📤 Upload your EUROCONTROL .bz2 or .csv data file", type=["bz2", "csv"])
-
-st.sidebar.title("⚙️ Dashboard")
-
-st.sidebar.markdown("""
-**Workflow**
-
-1. Upload dataset
-2. Explore historical delays
-3. Train forecasting model
-4. View forecast
-5. Review feature importance
-""")
-
-if uploaded_file is not None:
-    st.success(f"✅ File uploaded: {uploaded_file.name}")
+    @st.cache_data
+    def load_uploaded_data(uploaded_file):
     
-    # Load uploaded data
-    if uploaded_file.name.endswith(".bz2"):
-        df = pd.read_csv(uploaded_file, compression="bz2")
+        if uploaded_file.name.endswith(".bz2"):
+            return pd.read_csv(uploaded_file, compression="bz2")
+    
+        return pd.read_csv(uploaded_file)
+
+    @st.cache_resource
+    def train_xgboost(X_train, y_train):
+    
+        model = XGBRegressor(
+            n_estimators=300,
+            learning_rate=0.1,
+            max_depth=4,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            random_state=42,
+            n_jobs=-1
+        )
+
+        model.fit(X_train, y_train)
+    
+        return model
+    
+    st.set_page_config(
+        page_title="EUROCONTROL Flight Delay Analytics",
+        page_icon="✈️",
+        layout="wide"
+    )
+
+    st.title("✈️ EUROCONTROL Air Traffic Delay Intelligence Dashboard")
+    
+    st.caption(
+        "Interactive dashboard for analysing historical EUROCONTROL ANSP delays and forecasting future en-route ATFM delays using XGBoost."
+    )
+    # ---------------------------
+    # 📂 FILE UPLOAD
+    # ---------------------------
+    
+    st.sidebar.title("⚙️ Dashboard")
+
+    st.sidebar.markdown("""
+    **Workflow**
+    
+    1. Load default dataset
+    2. (Optional) Upload another dataset
+    3. Explore historical trends
+    4. Train forecasting model
+    5. Generate forecast
+    
+    """)
+    
+    
+    
+    uploaded_file = st.sidebar.file_uploader(
+        "Upload another dataset (optional)",
+        type=["csv", "bz2"]
+    )
+    
+    if uploaded_file is not None:
+        df = load_uploaded_data(uploaded_file)
+        st.success("Custom dataset loaded.")
     else:
-        df = pd.read_csv(uploaded_file)
+        df = load_data()
+        st.success("Default EUROCONTROL 2024 dataset loaded.")
+
+   
 
     # ---------------------------
     # 🧹 DATA CLEANING
@@ -209,35 +248,25 @@ if uploaded_file is not None:
     with tab3:
 
         st.subheader("🤖 Model Training & Evaluation")
-        df = daily.copy()
-        df["day_of_week"] = df["DATE"].dt.dayofweek
-        df["month"] = df["DATE"].dt.month
-        df["is_weekend"] = df["day_of_week"].isin([5, 6]).astype(int)
-        df["lag_1"] = df["TOTAL_DELAY"].shift(1)
-        df["lag_7"] = df["TOTAL_DELAY"].shift(7)
-        df["rolling_mean_7"] = df["TOTAL_DELAY"].shift(1).rolling(7).mean()
-        df["rolling_std_7"] = df["TOTAL_DELAY"].shift(1).rolling(7).std()
-        df = df.dropna().reset_index(drop=True)
+        model_df = daily.copy()
+        model_df["day_of_week"] = model_df["DATE"].dt.dayofweek
+        model_df["month"] = model_df["DATE"].dt.month
+        model_df["is_weekend"] = model_df["day_of_week"].isin([5, 6]).astype(int)
+        model_df["lag_1"] = model_df["TOTAL_DELAY"].shift(1)
+        model_df["lag_7"] = model_df["TOTAL_DELAY"].shift(7)
+        model_df["rolling_mean_7"] = model_df["TOTAL_DELAY"].shift(1).rolling(7).mean()
+        model_df["rolling_std_7"] = model_df["TOTAL_DELAY"].shift(1).rolling(7).std()
+        model_df = model_df.dropna().reset_index(drop=True)
 
         FEATURES = ["day_of_week", "month", "is_weekend", "lag_1", "lag_7", "rolling_mean_7", "rolling_std_7"]
-        X = df[FEATURES]
-        y = df["TOTAL_DELAY"]
+        X = model_df[FEATURES]
+        y = model_df["TOTAL_DELAY"]
 
-        split_idx = int(len(df) * 0.8)
+        split_idx = int(len(model_df) * 0.8)
         X_train, X_test = X.iloc[:split_idx], X.iloc[split_idx:]
         y_train, y_test = y.iloc[:split_idx], y.iloc[split_idx:]
 
-        model = XGBRegressor(
-            n_estimators=300,
-            learning_rate=0.1,
-            max_depth=4,
-            subsample=0.8,
-            colsample_bytree=0.8,
-            random_state=42,
-            n_jobs=-1
-        )
-        model.fit(X_train, y_train)
-
+        model = train_xgboost(X_train, y_train)
         y_pred = model.predict(X_test)
 
         importance = pd.DataFrame({
@@ -278,111 +307,116 @@ if uploaded_file is not None:
     # ---------------------------
     with tab2:
 
-        st.subheader("📈 7-Day Flight Delay Forecast")
-    
-        forecast_days = st.slider(
-            "Forecast Horizon",
-            1,
-            30,
-            7
-        )
-    
-        future = df.copy()
-        for i in range(forecast_days):
-            last_date = future["DATE"].iloc[-1] + timedelta(days=1)
-            new_data = {
-                "day_of_week": last_date.dayofweek,
-                "month": last_date.month,
-                "is_weekend": 1 if last_date.dayofweek in [5, 6] else 0,
-                "lag_1": future["TOTAL_DELAY"].iloc[-1],
-                "lag_7": future["TOTAL_DELAY"].iloc[-7] if len(future) >= 7 else future["TOTAL_DELAY"].iloc[-1],
-                "rolling_mean_7": future["TOTAL_DELAY"].tail(7).mean(),
-                "rolling_std_7": future["TOTAL_DELAY"].tail(7).std()
-            }
-            y_future = model.predict(pd.DataFrame([new_data]))[0]
-            new_data["TOTAL_DELAY"] = y_future
-            new_data["DATE"] = last_date
-            future = pd.concat([future, pd.DataFrame([new_data])], ignore_index=True)
-    
-        future_tail = future.set_index("DATE").tail(20)
-        forecast_plot = future_tail.reset_index()
+          
+        with st.form("forecast_form"):
 
-        fig = px.line(
-            forecast_plot,
-            x="DATE",
-            y="TOTAL_DELAY",
-            markers=True,
-            title=f"{forecast_days}-Day Flight Delay Forecast"
-        )
-        fig.add_vline(
-            x=future["DATE"].iloc[-forecast_days],
-            line_dash="dash",
-            line_color="red"
-        )
-    
-        st.plotly_chart(fig, use_container_width=True)
+            forecast_days = st.slider(
+                "Forecast Horizon (Days)",
+                1,
+                30,
+                7
+            )
 
-        st.success(
-            f"Forecast generated successfully for the next {forecast_days} days."
-        )
-        forecast = future.tail(forecast_days)
+            generate = st.form_submit_button("Generate Forecast")
+        st.subheader(f"📈 {forecast_days}-Day Flight Delay Forecast")
+        if generate:
     
-        st.subheader("Forecast Summary")
-        st.metric(
-            "Average Forecasted Delay",
-            f"{forecast['TOTAL_DELAY'].mean():,.0f} min"
-        )
-    
-        avg_delay = forecast["TOTAL_DELAY"].mean()
-
-        if avg_delay > 10000:
-            st.error(f"""
-         ### Business Insight
-
-        The model forecasts an average daily delay of **{avg_delay:,.0f} minutes** over the next **{forecast_days} days**.
+            future = model_df.copy()
+            for i in range(forecast_days):
+                last_date = future["DATE"].iloc[-1] + timedelta(days=1)
+                new_data = {
+                    "day_of_week": last_date.dayofweek,
+                    "month": last_date.month,
+                    "is_weekend": 1 if last_date.dayofweek in [5, 6] else 0,
+                    "lag_1": future["TOTAL_DELAY"].iloc[-1],
+                    "lag_7": future["TOTAL_DELAY"].iloc[-7] if len(future) >= 7 else future["TOTAL_DELAY"].iloc[-1],
+                    "rolling_mean_7": future["TOTAL_DELAY"].tail(7).mean(),
+                    "rolling_std_7": future["TOTAL_DELAY"].tail(7).std()
+                }
+                y_future = model.predict(pd.DataFrame([new_data]))[0]
+                new_data["TOTAL_DELAY"] = y_future
+                new_data["DATE"] = last_date
+                future = pd.concat([future, pd.DataFrame([new_data])], ignore_index=True)
         
-        High congestion is expected. Airlines, airports and ANSPs should consider additional operational capacity and proactive traffic management.
-        """)       
-
-        elif avg_delay > 5000:
-            st.warning(f"""
-        ### Business Insight
-        
-        The model forecasts an average daily delay of **{avg_delay:,.0f} minutes** over the next **{forecast_days} days**.
-        
-        Moderate congestion is expected. Resource planning and schedule optimisation are recommended.
-        """)
-
-        else:
-            st.success(f"""
-        ### Business Insight
-        
-        The model forecasts an average daily delay of **{avg_delay:,.0f} minutes** over the next **{forecast_days} days**.
-        
-        Forecasted delays remain relatively low, indicating relatively stable network conditions.
-        """)
-
-        forecast_display = forecast.copy()
-
-        forecast_display["TOTAL_DELAY"] = (
-            forecast_display["TOTAL_DELAY"]
-            .round(0)
-            .astype(int)
-        )
-
-        st.dataframe(
-            forecast_display,
-            use_container_width=True
-        )
+            future_tail = future.set_index("DATE").tail(20)
+            forecast_plot = future_tail.reset_index()
     
-        csv = forecast.to_csv(index=False)
+            fig = px.line(
+                forecast_plot,
+                x="DATE",
+                y="TOTAL_DELAY",
+                markers=True,
+                title=f"{forecast_days}-Day Flight Delay Forecast"
+            )
+            fig.add_vline(
+                x=future["DATE"].iloc[-forecast_days],
+                line_dash="dash",
+                line_color="red"
+            )
     
-        st.download_button(
-            "📥 Download Forecast",
-            csv,
-            "forecast.csv",
-            "text/csv"
-        )
+            st.plotly_chart(fig, use_container_width=True)
+        
+            st.success(
+                f"Forecast generated successfully for the next {forecast_days} days."
+            )
+            forecast = future.tail(forecast_days)
+            
+            st.subheader("Forecast Summary")
+            st.metric(
+                "Average Forecasted Delay",
+                f"{forecast['TOTAL_DELAY'].mean():,.0f} min"
+            )
+    
+            avg_delay = forecast["TOTAL_DELAY"].mean()
+        
+            if avg_delay > 10000:
+                st.error(f"""
+                ### Business Insight
+        
+            The model forecasts an average daily delay of **{avg_delay:,.0f} minutes** over the next **{forecast_days} days**.
+                
+            High congestion is expected. Airlines, airports and ANSPs should consider additional operational capacity and proactive traffic management.
+            """)       
+    
+            elif avg_delay > 5000:
+                st.warning(f"""
+            ### Business Insight
+                
+            The model forecasts an average daily delay of **{avg_delay:,.0f} minutes** over the next **{forecast_days} days**.
+                
+            Moderate congestion is expected. Resource planning and schedule optimisation are recommended.
+            """)
+
+            else:
+                st.success(f"""
+            ### Business Insight
+                
+            The model forecasts an average daily delay of **{avg_delay:,.0f} minutes** over the next **{forecast_days} days**.
+                
+            Forecasted delays remain relatively low, indicating relatively stable network conditions.
+            """)
+    
+            forecast_display = forecast.copy()
+        
+            forecast_display["TOTAL_DELAY"] = (
+                forecast_display["TOTAL_DELAY"]
+                .round(0)
+                .astype(int)
+            )
+
+            st.dataframe(
+                forecast_display,
+                use_container_width=True
+            )
+            
+            csv = forecast.to_csv(index=False)
+            
+            st.download_button(
+                "📥 Download Forecast",
+                csv,
+                "forecast.csv",
+                "text/csv"
+            )
 
     
 
